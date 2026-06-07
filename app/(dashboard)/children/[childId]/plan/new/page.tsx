@@ -87,6 +87,12 @@ export default function PlanNewPage() {
   const [child, setChild] = useState<Child | null>(null);
   const [mode, setMode] = useState<InputMode>("natural");
   const [description, setDescription] = useState("");
+
+  useEffect(() => {
+    // Read ?desc= from URL
+    const desc = new URLSearchParams(window.location.search).get("desc");
+    if (desc) setDescription(desc);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);

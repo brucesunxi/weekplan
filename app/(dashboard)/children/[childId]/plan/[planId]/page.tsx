@@ -119,7 +119,7 @@ export default function PlanDetailPage() {
           </Link>
           <div className="flex items-center gap-2">
             <Link
-              href={`/children/${childId}/plan/new`}
+              href={`/children/${childId}/plan/new?desc=${encodeURIComponent(plan.userDescription)}`}
               className="text-xs bg-muted text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-xl font-bold transition-colors"
             >
               🔄 重新生成
