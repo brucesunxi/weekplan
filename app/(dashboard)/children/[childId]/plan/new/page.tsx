@@ -30,8 +30,6 @@ const SUGGESTION_GROUPS = [
   {
     label: "⏰ 作息",
     items: [
-      "每天早上7点起床",
-      "每天晚上9点睡觉",
       "中午午休1小时",
       "每天保证10小时睡眠",
     ],
@@ -89,8 +87,6 @@ export default function PlanNewPage() {
   const [child, setChild] = useState<Child | null>(null);
   const [mode, setMode] = useState<InputMode>("natural");
   const [description, setDescription] = useState("");
-  const [wakeTime, setWakeTime] = useState("07:00");
-  const [bedTime, setBedTime] = useState("21:00");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);
@@ -139,18 +135,8 @@ export default function PlanNewPage() {
 
   async function submitNatural(e: React.FormEvent) {
     e.preventDefault();
-
-    // Build full description with wake/bed time
-    let fullDesc = description.trim();
-    if (!fullDesc.includes("起床")) {
-      fullDesc = `每天早上${wakeTime}起床。\n${fullDesc}`;
-    }
-    if (!fullDesc.includes("睡觉") && !fullDesc.includes("睡")) {
-      fullDesc = `${fullDesc}\n每天晚上${bedTime}睡觉。`;
-    }
-
-    if (!fullDesc.trim()) return;
-    await generatePlan("natural", { description: fullDesc.trim() });
+    if (!description.trim()) return;
+    await generatePlan("natural", { description: description.trim() });
   }
 
   async function submitStructured(data: StructuredInput) {
@@ -227,28 +213,35 @@ export default function PlanNewPage() {
         {/* Natural Language Mode */}
         {mode === "natural" && (
           <form onSubmit={submitNatural} className="space-y-5">
-            {/* Wake/Bed time */}
+            {/* Quick sleep/wake presets */}
             <div className="cute-card">
               <h3 className="font-bold flex items-center gap-1 mb-3">🛏️ 作息时间</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold mb-1 block">起床时间</label>
-                  <input
-                    type="time"
-                    value={wakeTime}
-                    onChange={(e) => setWakeTime(e.target.value)}
-                    className="cute-input text-lg text-center"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold mb-1 block">睡觉时间</label>
-                  <input
-                    type="time"
-                    value={bedTime}
-                    onChange={(e) => setBedTime(e.target.value)}
-                    className="cute-input text-lg text-center"
-                  />
-                </div>
+              <p className="text-xs text-muted-foreground mb-3">选好时间点一下，自动添加到描述中</p>
+              <div className="flex flex-wrap gap-2">
+                {["06:30", "07:00", "07:30", "08:00"].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setDescription((prev) => `${prev ? `${prev}\n` : ""}每天早上${t}起床`)}
+                    className="flex items-center gap-1.5 bg-white border border-border rounded-xl px-3 py-2 text-sm hover:border-cute-yellow hover:bg-cute-yellow/10 transition-all"
+                  >
+                    <span>🌅</span>
+                    <span className="font-bold">{t}</span>
+                    <span className="text-muted-foreground">起床</span>
+                  </button>
+                ))}
+                {["20:30", "21:00", "21:30", "22:00"].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setDescription((prev) => `${prev ? `${prev}\n` : ""}每天晚上${t}睡觉`)}
+                    className="flex items-center gap-1.5 bg-white border border-border rounded-xl px-3 py-2 text-sm hover:border-cute-lavender hover:bg-cute-lavender/10 transition-all"
+                  >
+                    <span>🌙</span>
+                    <span className="font-bold">{t}</span>
+                    <span className="text-muted-foreground">睡觉</span>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -306,7 +299,7 @@ export default function PlanNewPage() {
             <button
               type="submit"
               className="cute-button-primary w-full"
-              disabled={loading || (!description.trim() && !wakeTime && !bedTime)}
+              disabled={loading || !description.trim()}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
