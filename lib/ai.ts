@@ -84,7 +84,7 @@ export async function generatePlanCandidates(
       Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: "deepseek-v4-flash",
       messages: [
         { role: "system", content: "你是儿童作息规划师。只返回JSON数组，不要markdown不要其他文字。" },
         { role: "user", content: prompt },
@@ -179,7 +179,7 @@ async function callDeepSeek(prompt: string, weekStart: string): Promise<Record<s
       Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "deepseek-chat",
+      model: "deepseek-v4-flash",
       messages: [
         { role: "system", content: "你是儿童作息规划师。只返回JSON，不要任何其他文字。" },
         { role: "user", content: prompt },
