@@ -152,13 +152,14 @@ export default function PlanDetailPage() {
         </div>
       </motion.div>
 
-      {/* Weekly Calendar */}
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-3 mb-6">
+      {/* Weekly Calendar - Vertical layout */}
+      <div className="space-y-3 mb-6">
         {weekDays.map((date, i) => {
           const tasks = dayTasks[date] || [];
           const progress = dayProgress[date] || 0;
           const isToday = date === today;
           const dayNum = parseInt(date.split("-")[2]);
+          const completed = tasks.filter((t) => t.completed).length;
 
           return (
             <motion.div
@@ -169,26 +170,52 @@ export default function PlanDetailPage() {
             >
               <Link href={`/children/${childId}/plan/${planId}/day/${date}`}>
                 <div
-                  className={`cute-card p-3 md:p-4 cursor-pointer transition-all h-full ${
+                  className={`cute-card p-4 cursor-pointer transition-all ${
                     isToday ? "ring-2 ring-primary-400 bg-primary-50/30" : "hover:border-primary-200"
                   }`}
                 >
-                  <div className="text-center mb-2">
-                    <div className="text-xs text-muted-foreground">{getChineseWeekday(date)}</div>
-                    <div className={`text-2xl font-black ${isToday ? "text-primary-500" : ""}`}>{dayNum}</div>
+                  {/* Day header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className={`text-2xl font-black ${isToday ? "text-primary-500" : ""}`}>
+                        {dayNum}
+                      </div>
+                      <div>
+                        <div className={`font-bold text-base ${isToday ? "text-primary-500" : ""}`}>
+                          {getChineseWeekday(date)}
+                          {isToday && <span className="ml-1.5 text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full">今天</span>}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {completed}/{tasks.length} 完成
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-24 progress-bar">
+                        <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+                      </div>
+                      <span className="text-lg font-black text-cute-sky w-10 text-right">{progress}%</span>
+                    </div>
                   </div>
-                  <div className="progress-bar mb-2">
-                    <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
-                  </div>
-                  <div className="space-y-1">
-                    {tasks.slice(0, 4).map((task) => (
-                      <div key={task.id} className={`flex items-center gap-1 text-xs ${task.completed ? "text-muted-foreground line-through" : ""}`}>
-                        <span>{task.emoji}</span>
-                        <span className="truncate">{task.title}</span>
+
+                  {/* Task list */}
+                  <div className="space-y-1 ml-1">
+                    {tasks.slice(0, 6).map((task) => (
+                      <div key={task.id} className={`flex items-center gap-2 text-sm py-0.5 ${task.completed ? "text-muted-foreground line-through opacity-60" : ""}`}>
+                        <span className="text-base">{task.emoji}</span>
+                        <span className="w-14 text-xs text-muted-foreground font-mono">{task.time}{task.endTime ? `-${task.endTime}` : ""}</span>
+                        <span className="font-medium truncate">{task.title}</span>
+                        {task.completed && <span className="text-cute-mint text-xs">✓</span>}
                       </div>
                     ))}
-                    {tasks.length > 4 && <div className="text-xs text-muted-foreground text-center">+{tasks.length - 4} 项</div>}
-                    {tasks.length === 0 && <div className="text-xs text-muted-foreground text-center">暂无任务</div>}
+                    {tasks.length > 6 && (
+                      <div className="text-sm text-primary-500 font-bold pl-8">
+                        + {tasks.length - 6} 项更多 →
+                      </div>
+                    )}
+                    {tasks.length === 0 && (
+                      <div className="text-sm text-muted-foreground pl-8">暂无任务</div>
+                    )}
                   </div>
                 </div>
               </Link>
