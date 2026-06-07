@@ -164,12 +164,15 @@ function buildStructuredPrompt(input: StructuredInput, childName: string, childA
   // Free time
   const freeTimeText = `\n【自由时间要求】\n每天至少保留 ${input.freeTimePreference.minPlayTime} 的自由玩耍时间，优先安排在${input.freeTimePreference.preferredPeriod}。`;
 
+  // Wake & Bed time
+  const routineText = `\n【作息边界】\n每天 ${input.wakeTime} 起床，${input.bedTime} 睡觉。请严格按照这个时间安排每天的第一个和最后一个任务。`;
+
   // Additional notes
   const notesText = input.additionalNotes ? `\n【补充说明】\n${input.additionalNotes}` : "";
 
   return `请为 ${childName}（${childAge}岁）制定一份 ${weekStart} 开始的周计划。
 
-${fixedScheduleText}${wishlistText}${freeTimeText}${notesText}
+${fixedScheduleText}${wishlistText}${freeTimeText}${routineText}${notesText}
 
 要求：
 1. 按周一到周日（共7天）分别安排

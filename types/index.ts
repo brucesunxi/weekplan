@@ -131,6 +131,8 @@ export const DAY_NAMES_SHORT = ['日', '一', '二', '三', '四', '五', '六']
 export interface StructuredInput {
   fixedSlots: FixedSlot[]
   wishlist: WishlistItem[]
+  wakeTime: string        // "07:00"
+  bedTime: string         // "21:00"
   freeTimePreference: {
     minPlayTime: string
     preferredPeriod: string

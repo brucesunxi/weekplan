@@ -13,6 +13,8 @@ interface Props {
 export default function PlanFormStructured({ onSubmit, loading }: Props) {
   const [fixedSlots, setFixedSlots] = useState<FixedSlot[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [wakeTime, setWakeTime] = useState("07:00");
+  const [bedTime, setBedTime] = useState("21:00");
   const [minPlayTime, setMinPlayTime] = useState("1小时");
   const [preferredPeriod, setPreferredPeriod] = useState("下午");
   const [additionalNotes, setAdditionalNotes] = useState("");
@@ -21,6 +23,8 @@ export default function PlanFormStructured({ onSubmit, loading }: Props) {
     onSubmit({
       fixedSlots,
       wishlist,
+      wakeTime,
+      bedTime,
       freeTimePreference: {
         minPlayTime,
         preferredPeriod,
@@ -38,12 +42,37 @@ export default function PlanFormStructured({ onSubmit, loading }: Props) {
         <FixedSlotEditor slots={fixedSlots} onChange={setFixedSlots} />
       </div>
 
-      {/* Section 2: Wishlist */}
+      {/* Section 2: Wake & Bed time */}
+      <div className="cute-card">
+        <h3 className="font-bold flex items-center gap-1 mb-3">🛏️ 作息时间</h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold mb-1 block">起床时间</label>
+            <input
+              type="time"
+              value={wakeTime}
+              onChange={(e) => setWakeTime(e.target.value)}
+              className="cute-input text-lg text-center"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold mb-1 block">睡觉时间</label>
+            <input
+              type="time"
+              value={bedTime}
+              onChange={(e) => setBedTime(e.target.value)}
+              className="cute-input text-lg text-center"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Section 3: Wishlist */}
       <div className="cute-card">
         <WishlistEditor items={wishlist} onChange={setWishlist} />
       </div>
 
-      {/* Section 3: Free time + notes */}
+      {/* Section 4: Free time + notes */}
       <div className="cute-card">
         <h3 className="font-bold flex items-center gap-1 mb-3">🎮 自由时间</h3>
 
