@@ -68,15 +68,14 @@ export async function generatePlanCandidates(
 
 请一次生成3种不同风格的方案，返回JSON数组。
 
-方案要求：
-1. 劳逸结合：学习和玩乐均衡安排
-2. 学习优先：多安排学习内容，适当减少玩乐
-3. 轻松愉快：多户外和自由时间，节奏轻松
+方案1：⚖️ 劳逸结合（学习和玩乐均衡）
+方案2：📚 学习优先（多安排学习）
+方案3：🎮 轻松愉快（多户外和自由时间）
 
-每种方案格式：
-{"style":"劳逸结合","description":"简述特点","days":{"${dates[0]}":[{"t":"07:00","e":"07:30","n":"起床洗漱"}]}}
+严格按此格式返回数组（每个方案一个对象）：
+[{"style":"劳逸结合","description":"特点说明","days":{"${dates[0]}":[{"t":"07:00","e":"07:30","n":"起床洗漱"}]}}]
 
-每天6-8项任务。仅返回JSON数组，不要其他文字。`;
+每天6-8项任务。不要markdown，只要纯JSON数组。`;
 
   const res = await fetch(DEEPSEEK_API, {
     method: "POST",
@@ -87,11 +86,11 @@ export async function generatePlanCandidates(
     body: JSON.stringify({
       model: "deepseek-chat",
       messages: [
-        { role: "system", content: "你是儿童作息规划师。只返回JSON数组，不要任何其他文字。" },
+        { role: "system", content: "你是儿童作息规划师。只返回JSON数组，不要markdown不要其他文字。" },
         { role: "user", content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 4000,
+      max_tokens: 8000,
     }),
   });
 
@@ -101,12 +100,18 @@ export async function generatePlanCandidates(
   let content = data.choices?.[0]?.message?.content || "";
   if (!content) throw new Error("AI 返回为空");
 
-  // Extract JSON array
+  // Extract JSON array (handle markdown wrapping)
   const m = content.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
   if (m) content = m[1];
   else { const b = content.match(/\[[\s\S]*\]/); if (b) content = b[0]; }
 
-  let raw: Array<{ style?: string; description?: string; days?: Record<string, unknown[]> }>;
+  // Try to fix truncated JSON (last item might be cut off)
+  if (content.length > 1000 && !content.trim().endsWith("]")) {
+    const lastBracket = content.lastIndexOf("}");
+    if (lastBracket > 0) content = content.slice(0, lastBracket + 1) + "]";
+  }
+
+  let raw: Array<Record<string, unknown>>;
   try {
     raw = JSON.parse(content);
   } catch {
@@ -117,9 +122,22 @@ export async function generatePlanCandidates(
   if (!Array.isArray(raw)) throw new Error("AI 返回格式异常");
 
   return raw.map((candidate, idx) => {
-    const style = candidate.style || `方案${["A","B","C"][idx]}`;
-    const desc = candidate.description || "";
-    const rawDays = candidate.days || {};
+    const style = (candidate.style || candidate.title || `方案${["A","B","C"][idx]}`) as string;
+    const desc = (candidate.description || "") as string;
+    const defaultStyle = ["⚖️ 劳逸结合", "📚 学习优先", "🎮 轻松愉快"][idx] || style;
+
+    // Handle different response formats
+    let rawDays: Record<string, unknown[]> = {};
+    if (candidate.days && typeof candidate.days === "object") {
+      rawDays = candidate.days as Record<string, unknown[]>;
+    } else if (candidate.dailySchedule && Array.isArray(candidate.dailySchedule)) {
+      // Convert dailySchedule array to days object
+      for (const entry of candidate.dailySchedule as Array<Record<string, unknown>>) {
+        const date = entry.date as string;
+        const tasks = entry.tasks as unknown[];
+        if (date && Array.isArray(tasks)) rawDays[date] = tasks;
+      }
+    }
     const normalized: Record<string, Task[]> = {};
     let idCounter = 0;
 
@@ -149,7 +167,7 @@ export async function generatePlanCandidates(
       idCounter += normalized[date].length;
     }
 
-    return { style, description: desc, days: normalized };
+    return { style: defaultStyle, description: desc, days: normalized };
   });
 }
 

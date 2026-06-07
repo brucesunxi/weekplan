@@ -117,13 +117,21 @@ export default function PlanDetailPage() {
           <Link href={`/children/${childId}`} className="text-muted-foreground hover:text-foreground">
             ← {child.name}
           </Link>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="text-xs text-red-400 hover:text-red-600 transition-colors px-2 py-1 rounded-lg hover:bg-red-50"
-          >
-            {deleting ? "删除中..." : "🗑️ 删除计划"}
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/children/${childId}/plan/new`}
+              className="text-xs bg-muted text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-xl font-bold transition-colors"
+            >
+              🔄 重新生成
+            </Link>
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-xs text-red-400 hover:text-red-600 transition-colors px-2 py-1.5 rounded-lg hover:bg-red-50"
+            >
+              {deleting ? "删除中..." : "🗑️ 删除"}
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center justify-between">

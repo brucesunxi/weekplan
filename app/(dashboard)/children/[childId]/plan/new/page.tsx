@@ -368,8 +368,18 @@ export default function PlanNewPage() {
         {/* Candidates display */}
         {candidates && (
           <div className="space-y-4">
-            <h2 className="text-lg font-black">选择你喜欢的方案</h2>
-            <p className="text-sm text-muted-foreground">AI 生成了 3 种不同风格的周计划，点击选择一个</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-black">选择你喜欢的方案</h2>
+                <p className="text-sm text-muted-foreground">AI 生成了 3 种不同风格的周计划</p>
+              </div>
+              <button
+                onClick={() => setCandidates(null)}
+                className="text-sm bg-muted px-3 py-1.5 rounded-xl font-bold hover:bg-primary-100 transition-colors"
+              >
+                🔙 返回修改
+              </button>
+            </div>
             <div className="grid gap-4">
               {candidates.map((c, i) => (
                 <motion.div
