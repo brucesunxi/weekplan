@@ -8,8 +8,7 @@ import { signIn } from "next-auth/react";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -23,7 +22,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       if (!res.ok) {
@@ -34,7 +33,7 @@ export default function RegisterPage() {
       }
 
       // Auto sign in after registration
-      await signIn("credentials", { email, password, redirect: false });
+      await signIn("credentials", { username, password, redirect: false });
       router.push("/");
       router.refresh();
     } catch {
@@ -59,24 +58,12 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-bold mb-1">昵称</label>
+              <label className="block text-sm font-bold mb-1">用户名</label>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="你的昵称"
-                className="cute-input"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold mb-1">邮箱</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="请输入邮箱"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="设置你的用户名"
                 className="cute-input"
                 required
               />

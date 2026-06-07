@@ -56,7 +56,7 @@ export default function DashboardLayout({
             ))}
             <div className="flex items-center gap-3 ml-2 pl-4 border-l border-border">
               <span className="text-sm text-muted-foreground">
-                {session?.user?.name || session?.user?.email}
+                {session?.user?.name}
               </span>
               <button
                 onClick={() => signOut()}

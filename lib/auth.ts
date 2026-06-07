@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { compare, hash } from "./crypto";
+import { compare } from "./crypto";
 
 declare module "next-auth" {
   interface User {
@@ -13,11 +13,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Credentials({
       name: "credentials",
       credentials: {
-        email: { label: "邮箱", type: "email" },
+        username: { label: "用户名", type: "text" },
         password: { label: "密码", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.username || !credentials?.password) return null;
 
         const { Redis } = await import("@upstash/redis");
         const kv = new Redis({
@@ -25,16 +25,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           token: process.env.KV_REST_API_TOKEN || "",
         });
 
-        const email = credentials.email as string;
+        const username = credentials.username as string;
         const password = credentials.password as string;
 
-        const userData = await kv.hgetall(`user:email:${email}`) as Record<string, string> | null;
+        const userData = await kv.hgetall(`user:${username}`) as Record<string, string> | null;
         if (!userData) return null;
 
         const valid = await compare(password, userData.password);
         if (!valid) return null;
 
-        return { id: userData.id, name: userData.name, email: userData.email };
+        return { id: userData.id, name: username, email: "" };
       },
     }),
   ],
@@ -47,10 +47,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     async jwt({ token, user }) {
       if (user) token.id = user.id;
+      if (user) token.name = user.name;
       return token;
     },
     async session({ session, token }) {
-      if (session.user) session.user.id = token.id as string;
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.name = token.name as string;
+      }
       return session;
     },
   },

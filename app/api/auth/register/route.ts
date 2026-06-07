@@ -4,14 +4,18 @@ import { hash } from "@/lib/crypto";
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json();
+    const { username, password } = await req.json();
 
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: "请填写所有必填项" }, { status: 400 });
+    if (!username || !password) {
+      return NextResponse.json({ error: "请填写用户名和密码" }, { status: 400 });
     }
 
     if (password.length < 6) {
       return NextResponse.json({ error: "密码至少 6 位" }, { status: 400 });
+    }
+
+    if (username.length < 2) {
+      return NextResponse.json({ error: "用户名至少 2 个字符" }, { status: 400 });
     }
 
     const kv = new Redis({
@@ -19,29 +23,20 @@ export async function POST(req: Request) {
       token: process.env.KV_REST_API_TOKEN || "",
     });
 
-    // Check if email exists
-    const existing = await kv.hgetall(`user:email:${email}`);
+    // Check if username exists
+    const existing = await kv.hgetall(`user:${username}`);
     if (existing) {
-      return NextResponse.json({ error: "该邮箱已注册" }, { status: 409 });
+      return NextResponse.json({ error: "该用户名已被注册" }, { status: 409 });
     }
 
     const id = crypto.randomUUID();
     const hashedPassword = await hash(password);
 
-    // Store user
-    await kv.hset(`user:${id}`, {
+    // Store user by username
+    await kv.hset(`user:${username}`, {
       id,
-      name,
-      email,
-      createdAt: Date.now(),
-    });
-
-    // Store email index
-    await kv.hset(`user:email:${email}`, {
-      id,
-      name,
-      email,
       password: hashedPassword,
+      createdAt: Date.now(),
     });
 
     return NextResponse.json({ success: true, id });
