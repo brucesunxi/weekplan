@@ -1,10 +1,87 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import type { Child, InputMode, StructuredInput } from "@/types";
 import PlanFormStructured from "@/components/plan-form-structured";
+
+// Speech recognition
+interface SpeechRecognitionEvent {
+  results: { [index: number]: { [index: number]: { transcript: string } } };
+}
+
+const SpeechRecognitionAPI =
+  typeof window !== "undefined" &&
+  ((window as unknown as Record<string, unknown>).SpeechRecognition ||
+    (window as unknown as Record<string, unknown>).webkitSpeechRecognition) as
+    | (new () => {
+        lang: string
+        continuous: boolean
+        interimResults: boolean
+        start: () => void
+        onresult: (e: SpeechRecognitionEvent) => void
+        onerror: () => void
+        onend: () => void
+      })
+    | undefined;
+
+const SUGGESTION_GROUPS = [
+  {
+    label: "⏰ 作息",
+    items: [
+      "每天早上7点起床",
+      "每天晚上9点睡觉",
+      "中午午休1小时",
+      "每天保证10小时睡眠",
+    ],
+  },
+  {
+    label: "📚 课程",
+    items: [
+      "周一三五有钢琴课，下午4点到5点半",
+      "周二周四有英语课，晚上6点到7点",
+      "周六上午有画画课",
+      "周日下午有编程课",
+    ],
+  },
+  {
+    label: "📖 学习习惯",
+    items: [
+      "每天课外阅读30分钟",
+      "每天练字20分钟",
+      "每天完成学校作业",
+      "每周背诵一首古诗",
+    ],
+  },
+  {
+    label: "⚽ 运动玩乐",
+    items: [
+      "每天户外活动至少1小时",
+      "周末去公园或博物馆",
+      "每天自由玩耍时间",
+      "每周游泳一次",
+    ],
+  },
+  {
+    label: "🍚 饮食",
+    items: [
+      "早上8点前吃完早餐",
+      "中午12点午餐",
+      "晚上6点半晚餐",
+      "少吃零食，多吃水果",
+    ],
+  },
+  {
+    label: "🌟 习惯培养",
+    items: [
+      "自己整理书包和房间",
+      "每天洗澡刷牙",
+      "控制看电视时间",
+      "每天练琴30分钟",
+    ],
+  },
+];
 
 export default function PlanNewPage() {
   const params = useParams();
@@ -12,8 +89,11 @@ export default function PlanNewPage() {
   const [child, setChild] = useState<Child | null>(null);
   const [mode, setMode] = useState<InputMode>("natural");
   const [description, setDescription] = useState("");
+  const [wakeTime, setWakeTime] = useState("07:00");
+  const [bedTime, setBedTime] = useState("21:00");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [listening, setListening] = useState(false);
 
   useEffect(() => {
     fetch(`/api/children/${params.childId}`)
@@ -22,10 +102,55 @@ export default function PlanNewPage() {
       .catch(console.error);
   }, [params.childId]);
 
+  // Voice recognition
+  const toggleListening = useCallback(() => {
+    if (listening) {
+      setListening(false);
+      return;
+    }
+
+    if (!SpeechRecognitionAPI) {
+      alert("语音识别需要 Chrome 浏览器");
+      return;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "zh-CN";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      const transcript = event.results[0][0].transcript;
+      setDescription((prev) => (prev ? `${prev}\n${transcript}` : transcript));
+      setListening(false);
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+
+    recognition.start();
+    setListening(true);
+  }, [listening]);
+
   async function submitNatural(e: React.FormEvent) {
     e.preventDefault();
-    if (!description.trim()) return;
-    await generatePlan("natural", { description: description.trim() });
+
+    // Build full description with wake/bed time
+    let fullDesc = description.trim();
+    if (!fullDesc.includes("起床")) {
+      fullDesc = `每天早上${wakeTime}起床。\n${fullDesc}`;
+    }
+    if (!fullDesc.includes("睡觉") && !fullDesc.includes("睡")) {
+      fullDesc = `${fullDesc}\n每天晚上${bedTime}睡觉。`;
+    }
+
+    if (!fullDesc.trim()) return;
+    await generatePlan("natural", { description: fullDesc.trim() });
   }
 
   async function submitStructured(data: StructuredInput) {
@@ -62,13 +187,6 @@ export default function PlanNewPage() {
     }
   }
 
-  const suggestions = [
-    "周一三五有钢琴课，周二周四有英语课",
-    "早上7点起床，晚上9点睡觉",
-    "每天需要1小时户外活动",
-    "周末想带他去公园和博物馆",
-  ];
-
   return (
     <div className="max-w-2xl mx-auto">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -88,7 +206,7 @@ export default function PlanNewPage() {
               mode === "natural" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            📝 自然语言描述
+            🎤 直接说
           </button>
           <button
             type="button"
@@ -109,31 +227,78 @@ export default function PlanNewPage() {
         {/* Natural Language Mode */}
         {mode === "natural" && (
           <form onSubmit={submitNatural} className="space-y-5">
+            {/* Wake/Bed time */}
+            <div className="cute-card">
+              <h3 className="font-bold flex items-center gap-1 mb-3">🛏️ 作息时间</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold mb-1 block">起床时间</label>
+                  <input
+                    type="time"
+                    value={wakeTime}
+                    onChange={(e) => setWakeTime(e.target.value)}
+                    className="cute-input text-lg text-center"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold mb-1 block">睡觉时间</label>
+                  <input
+                    type="time"
+                    value={bedTime}
+                    onChange={(e) => setBedTime(e.target.value)}
+                    className="cute-input text-lg text-center"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Textarea with voice button */}
             <div>
-              <label className="block text-sm font-bold mb-2">描述本周安排</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-bold">描述本周安排</label>
+                <button
+                  type="button"
+                  onClick={toggleListening}
+                  className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl font-bold transition-all ${
+                    listening
+                      ? "bg-red-100 text-red-600 animate-pulse"
+                      : "bg-muted text-muted-foreground hover:bg-primary-100 hover:text-primary-700"
+                  }`}
+                >
+                  <span className="text-lg">{listening ? "🔴" : "🎤"}</span>
+                  {listening ? "录音中..." : "语音输入"}
+                </button>
+              </div>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={`描述 ${child?.name || "孩子"} 的日常作息，例如：\n${suggestions.join("\n")}`}
-                className="cute-input min-h-[200px] resize-y"
-                rows={8}
+                placeholder={`说说 ${child?.name || "孩子"} 的作息安排吧，比如：\n每天7点起床，9点睡觉\n周一三五有钢琴课\n每天要读30分钟书`}
+                className="cute-input min-h-[160px] resize-y"
+                rows={6}
                 required
               />
             </div>
 
-            {/* Quick suggestions */}
+            {/* Quick suggestions - categorized */}
             <div>
-              <p className="text-xs text-muted-foreground mb-2">快捷添加（点击补到描述中）：</p>
-              <div className="flex flex-wrap gap-2">
-                {suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => setDescription((prev) => (prev ? `${prev}\n${s}` : s))}
-                    className="text-xs bg-muted rounded-xl px-3 py-1.5 hover:bg-muted/80 transition-colors"
-                  >
-                    {s}
-                  </button>
+              <p className="text-xs text-muted-foreground mb-2">💡 想不到怎么描述？点这些快捷短语添加到描述中：</p>
+              <div className="space-y-3">
+                {SUGGESTION_GROUPS.map((group) => (
+                  <div key={group.label}>
+                    <p className="text-xs font-bold text-muted-foreground mb-1.5">{group.label}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.items.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setDescription((prev) => (prev ? `${prev}\n${item}` : item))}
+                          className="text-xs bg-white border border-border rounded-xl px-3 py-1.5 hover:border-primary-300 hover:bg-primary-50 transition-all"
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -141,7 +306,7 @@ export default function PlanNewPage() {
             <button
               type="submit"
               className="cute-button-primary w-full"
-              disabled={loading || !description.trim()}
+              disabled={loading || (!description.trim() && !wakeTime && !bedTime)}
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
