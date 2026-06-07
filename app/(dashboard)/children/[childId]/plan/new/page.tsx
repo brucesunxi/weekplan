@@ -90,6 +90,11 @@ export default function PlanNewPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [listening, setListening] = useState(false);
+  // Multi-plan candidates
+  const [candidates, setCandidates] = useState<Array<{
+    style: string; description: string; days: Record<string, unknown[]>; totalTasks: number
+  }> | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/children/${params.childId}`)
@@ -146,6 +151,7 @@ export default function PlanNewPage() {
   async function generatePlan(submitMode: InputMode, extra: Record<string, unknown>) {
     setError("");
     setLoading(true);
+    setCandidates(null);
 
     try {
       const res = await fetch("/api/plans/generate", {
@@ -166,11 +172,49 @@ export default function PlanNewPage() {
         return;
       }
 
+      // Check if this is a candidates response
+      if (data.mode === "candidates") {
+        setCandidates(data.candidates);
+        setLoading(false);
+        return;
+      }
+
       router.push(`/children/${params.childId}/plan/${data.planId}`);
     } catch {
       setError("网络错误，请重试");
       setLoading(false);
     }
+  }
+
+  async function selectCandidate(candidate: NonNullable<typeof candidates>[0]) {
+    if (!candidate) return;
+    setSaving(candidate.style);
+    try {
+      const res = await fetch("/api/plans/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childId: params.childId,
+          days: candidate.days,
+          description: candidate.description,
+          style: candidate.style,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        router.push(`/children/${params.childId}/plan/${data.planId}`);
+      } else {
+        setError("保存失败");
+        setSaving(null);
+      }
+    } catch {
+      setError("网络错误");
+      setSaving(null);
+    }
+  }
+
+  async function generateCandidates() {
+    await generatePlan("candidates" as InputMode, { description: description.trim() });
   }
 
   return (
@@ -309,7 +353,66 @@ export default function PlanNewPage() {
                 "✨ 生成周计划"
               )}
             </button>
+
+            <button
+              type="button"
+              onClick={generateCandidates}
+              disabled={loading || !description.trim()}
+              className="cute-button-secondary w-full text-sm"
+            >
+              🎯 生成多个方案供选择
+            </button>
           </form>
+        )}
+
+        {/* Candidates display */}
+        {candidates && (
+          <div className="space-y-4">
+            <h2 className="text-lg font-black">选择你喜欢的方案</h2>
+            <p className="text-sm text-muted-foreground">AI 生成了 3 种不同风格的周计划，点击选择一个</p>
+            <div className="grid gap-4">
+              {candidates.map((c, i) => (
+                <motion.div
+                  key={c.style}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="cute-card hover:ring-2 hover:ring-primary-400 cursor-pointer transition-all"
+                  onClick={() => !saving && selectCandidate(c)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="font-black text-lg">
+                        {["⚖️", "📚", "🎮"][i] || "📋"} {c.style}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">{c.description}</p>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); selectCandidate(c); }}
+                      disabled={saving !== null}
+                      className="cute-button-primary text-sm px-4 py-2"
+                    >
+                      {saving === c.style ? "保存中..." : "使用此方案"}
+                    </button>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    📋 共 {c.totalTasks} 项任务 · 7 天
+                  </div>
+                  {/* Mini day preview */}
+                  <div className="flex gap-2 mt-2 overflow-x-auto">
+                    {Object.entries(c.days).slice(0, 7).map(([date, tasks]) => (
+                      <div key={date} className="flex-shrink-0 w-12 text-center">
+                        <div className="text-xs text-muted-foreground">
+                          {["日","一","二","三","四","五","六"][new Date(date).getDay()]}
+                        </div>
+                        <div className="text-xs font-bold">{tasks.length}项</div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Structured Mode */}

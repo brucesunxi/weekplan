@@ -45,3 +45,31 @@ export async function PATCH(
     dayProgress: calculateProgress(tasks),
   });
 }
+
+// PUT: replace all tasks for a day (used for editing)
+export async function PUT(
+  req: Request,
+  { params }: { params: Promise<{ id: string; date: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
+
+  const { id, date } = await params;
+  const plan = await getPlan(id);
+  if (!plan || plan.userId !== session.user.id) {
+    return NextResponse.json({ error: "未找到" }, { status: 404 });
+  }
+
+  const { tasks } = await req.json();
+  if (!Array.isArray(tasks)) {
+    return NextResponse.json({ error: "无效数据" }, { status: 400 });
+  }
+
+  await setDayTasks(id, date, tasks);
+  return NextResponse.json({
+    success: true,
+    dayProgress: calculateProgress(tasks),
+  });
+}

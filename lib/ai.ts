@@ -2,16 +2,23 @@ import type { Task, StructuredInput } from "@/types";
 
 const DEEPSEEK_API = "https://api.deepseek.com/chat/completions";
 
+interface PlanCandidate {
+  style: string
+  description: string
+  days: Record<string, Task[]>
+}
+
 export async function generateWeeklyPlan(
   description: string,
   childName: string,
   childAge: number,
   weekStart: string
 ): Promise<Record<string, Task[]>> {
+  const dates = getDates(weekStart);
   const prompt = `为${childName}(${childAge}岁)做份${weekStart}起7天周计划。${description}
 每天6-8项任务，含起床、三餐、学习、运动、玩乐、洗漱、睡觉。
 
-仅返回极简JSON，每项{t(开始时间),e(结束时间),n(名称)}：{"${weekStart}":[{"t":"07:00","e":"07:30","n":"起床洗漱"}]}`;
+仅返回极简JSON，每项{t(开始时间),e(结束时间),n(名称)}：{"${dates[0]}":[{"t":"07:00","e":"07:30","n":"起床洗漱"}]}`;
 
   return callDeepSeek(prompt, weekStart);
 }
@@ -45,9 +52,105 @@ export async function generateStructuredPlan(
   const prompt = `为${childName}(${childAge}岁)做份${weekStart}起7天周计划。${extra}
 固定时间必须精确匹配。每天6-8项任务。
 
-仅返回极简JSON，每项{t(开始时间),e(结束时间),n(名称)}：{"${weekStart}":[{"t":"07:00","e":"07:30","n":"起床洗漱"}]}`;
+仅返回极简JSON，每项{t(开始时间),e(结束时间),n(名称)}：{"${getDates(weekStart)[0]}":[{"t":"07:00","e":"07:30","n":"起床洗漱"}]}`;
 
   return callDeepSeek(prompt, weekStart);
+}
+
+export async function generatePlanCandidates(
+  description: string,
+  childName: string,
+  childAge: number,
+  weekStart: string
+): Promise<PlanCandidate[]> {
+  const dates = getDates(weekStart);
+  const prompt = `为${childName}(${childAge}岁)做份${weekStart}起7天周计划。${description}
+
+请一次生成3种不同风格的方案，返回JSON数组。
+
+方案要求：
+1. 劳逸结合：学习和玩乐均衡安排
+2. 学习优先：多安排学习内容，适当减少玩乐
+3. 轻松愉快：多户外和自由时间，节奏轻松
+
+每种方案格式：
+{"style":"劳逸结合","description":"简述特点","days":{"${dates[0]}":[{"t":"07:00","e":"07:30","n":"起床洗漱"}]}}
+
+每天6-8项任务。仅返回JSON数组，不要其他文字。`;
+
+  const res = await fetch(DEEPSEEK_API, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [
+        { role: "system", content: "你是儿童作息规划师。只返回JSON数组，不要任何其他文字。" },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!res.ok) throw new Error(`AI error: ${res.status}`);
+
+  const data = await res.json();
+  let content = data.choices?.[0]?.message?.content || "";
+  if (!content) throw new Error("AI 返回为空");
+
+  // Extract JSON array
+  const m = content.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
+  if (m) content = m[1];
+  else { const b = content.match(/\[[\s\S]*\]/); if (b) content = b[0]; }
+
+  let raw: Array<{ style?: string; description?: string; days?: Record<string, unknown[]> }>;
+  try {
+    raw = JSON.parse(content);
+  } catch {
+    content = content.replace(/([{,]\s*)(\w+)(\s*:)/g, '$1"$2"$3').replace(/,\s*([}\]])/g, "$1");
+    raw = JSON.parse(content);
+  }
+
+  if (!Array.isArray(raw)) throw new Error("AI 返回格式异常");
+
+  return raw.map((candidate, idx) => {
+    const style = candidate.style || `方案${["A","B","C"][idx]}`;
+    const desc = candidate.description || "";
+    const rawDays = candidate.days || {};
+    const normalized: Record<string, Task[]> = {};
+    let idCounter = 0;
+
+    for (const date of dates) {
+      let items = rawDays[date];
+      if (!Array.isArray(items)) {
+        const alt = Object.keys(rawDays).find(k =>
+          k.includes(date) || date.includes(k)
+        );
+        items = alt ? rawDays[alt] : [];
+      }
+      normalized[date] = (Array.isArray(items) ? items : []).map((t: unknown, i: number) => {
+        const item = t as Record<string, string>;
+        const tt = item.t || item.time || "08:00";
+        const te = item.e || item.endTime || "";
+        const name = item.n || item.title || item.name || "";
+        return {
+          id: String(idCounter + i),
+          time: tt.includes("-") ? tt.split("-")[0].trim() : tt,
+          endTime: te || (tt.includes("-") ? tt.split("-")[1]?.trim() || "" : ""),
+          title: name,
+          emoji: guessEmoji(name),
+          category: guessCategory(name),
+          completed: false,
+        };
+      });
+      idCounter += normalized[date].length;
+    }
+
+    return { style, description: desc, days: normalized };
+  });
 }
 
 async function callDeepSeek(prompt: string, weekStart: string): Promise<Record<string, Task[]>> {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { getPlan, getChild } from "@/lib/kv";
+import { getPlan, deletePlan } from "@/lib/kv";
 
 export async function GET(
   _req: Request,
@@ -39,5 +39,24 @@ export async function PATCH(
   const { updatePlan } = await import("@/lib/kv");
   await updatePlan(id, body);
 
+  return NextResponse.json({ success: true });
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const plan = await getPlan(id);
+  if (!plan || plan.userId !== session.user.id) {
+    return NextResponse.json({ error: "未找到" }, { status: 404 });
+  }
+
+  await deletePlan(id);
   return NextResponse.json({ success: true });
 }

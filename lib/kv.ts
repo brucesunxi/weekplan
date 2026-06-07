@@ -60,6 +60,24 @@ export async function updatePlan(id: string, data: Partial<Plan>): Promise<void>
   await kv.hset(keys.plan(id), data as unknown as Record<string, unknown>);
 }
 
+export async function deletePlan(id: string): Promise<void> {
+  const plan = await getPlan(id);
+  if (!plan) return;
+  // Remove from child's plan index
+  await kv.srem(keys.childPlans(plan.childId), id);
+  // Remove plan data
+  await kv.del(keys.plan(id));
+  // Remove all 7 day tasks
+  const [y, m, d] = plan.weekStart.split("-").map(Number);
+  const start = new Date(y, m - 1, d);
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(start);
+    date.setDate(start.getDate() + i);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    await kv.del(keys.dayTasks(id, dateStr));
+  }
+}
+
 export async function getPlansByChild(childId: string): Promise<Plan[]> {
   const ids = await kv.smembers(keys.childPlans(childId));
   if (ids.length === 0) return [];
@@ -73,8 +91,15 @@ export async function getPlansByChild(childId: string): Promise<Plan[]> {
 
 // ===== Daily Tasks =====
 export async function getDayTasks(planId: string, date: string): Promise<Task[]> {
-  const raw = await kv.get<string>(keys.dayTasks(planId, date));
-  return raw ? JSON.parse(raw) : [];
+  const raw = await kv.get(keys.dayTasks(planId, date));
+  if (!raw) return [];
+  // raw could be a string (JSON) or already parsed array/object
+  if (Array.isArray(raw)) return raw as Task[];
+  if (typeof raw === "string") {
+    if (!raw.trim()) return [];
+    try { return JSON.parse(raw); } catch { return []; }
+  }
+  return [];
 }
 
 export async function setDayTasks(planId: string, date: string, tasks: Task[]): Promise<void> {

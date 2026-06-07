@@ -140,7 +140,7 @@ export interface StructuredInput {
   additionalNotes: string
 }
 
-export type InputMode = 'natural' | 'structured'
+export type InputMode = 'natural' | 'structured' | 'candidates'
 
 export const WISHLIST_FREQUENCY_META: Record<WishlistFrequency, { label: string }> = {
   daily: { label: '每天' },
