@@ -69,7 +69,9 @@ export interface DaySchedule {
 // ===== API Types =====
 export interface GeneratePlanRequest {
   childId: string
-  description: string
+  mode: InputMode
+  description?: string
+  structured?: StructuredInput
 }
 
 export interface GeneratePlanResponse {
@@ -88,10 +90,65 @@ export interface ToggleTaskResponse {
   dayProgress: number
 }
 
-// ===== Auth =====
-export interface User {
+// ===== 结构化计划输入 =====
+export interface FixedSlot {
   id: string
-  name: string
-  email: string
-  image?: string
+  dayOfWeek: number  // 0=周日, 1=周一 ... 6=周六
+  startTime: string  // "16:00"
+  endTime: string    // "17:30"
+  title: string
+  emoji: string
+  location?: string
+}
+
+export interface WishlistItem {
+  id: string
+  category: WishlistCategory
+  title: string
+  frequency: WishlistFrequency
+  duration: string
+  priority: WishlistPriority
+  note?: string
+}
+
+export type WishlistCategory = 'reading' | 'tutoring' | 'practice' | 'homework' | 'habit' | 'chore' | 'play'
+export type WishlistFrequency = 'daily' | 'weekdays' | 'weekends' | 'weekly'
+export type WishlistPriority = 'high' | 'medium' | 'low'
+
+export const WISHLIST_CATEGORY_META: Record<WishlistCategory, { label: string; emoji: string }> = {
+  reading: { label: '阅读', emoji: '📖' },
+  tutoring: { label: '辅导', emoji: '📚' },
+  practice: { label: '练习', emoji: '✏️' },
+  homework: { label: '作业', emoji: '📝' },
+  habit: { label: '习惯', emoji: '🌟' },
+  chore: { label: '家务', emoji: '🧹' },
+  play: { label: '玩乐', emoji: '🎮' },
+}
+
+export const DAY_NAMES = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+export const DAY_NAMES_SHORT = ['日', '一', '二', '三', '四', '五', '六']
+
+export interface StructuredInput {
+  fixedSlots: FixedSlot[]
+  wishlist: WishlistItem[]
+  freeTimePreference: {
+    minPlayTime: string
+    preferredPeriod: string
+  }
+  additionalNotes: string
+}
+
+export type InputMode = 'natural' | 'structured'
+
+export const WISHLIST_FREQUENCY_META: Record<WishlistFrequency, { label: string }> = {
+  daily: { label: '每天' },
+  weekdays: { label: '周中' },
+  weekends: { label: '周末' },
+  weekly: { label: '每周几次' },
+}
+
+export const WISHLIST_PRIORITY_META: Record<WishlistPriority, { label: string; color: string }> = {
+  high: { label: '高优先', color: '#FF6B6B' },
+  medium: { label: '中优先', color: '#FFD166' },
+  low: { label: '低优先', color: '#A8E6CF' },
 }
