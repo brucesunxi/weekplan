@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import type { Plan, Child, Task } from "@/types";
-import { getWeekDays, getChineseWeekday, calculateProgress } from "@/lib/utils";
+import { getWeekDays, getChineseWeekday, calculateProgress, parseLocalDate } from "@/lib/utils";
 
 export default function PlanDetailPage() {
   const params = useParams();
@@ -18,7 +18,7 @@ export default function PlanDetailPage() {
 
   const planId = params.planId as string;
   const childId = params.childId as string;
-  const weekDays = plan ? getWeekDays(new Date(plan.weekStart)) : [];
+  const weekDays = plan ? getWeekDays(parseLocalDate(plan.weekStart)) : [];
 
   useEffect(() => {
     async function load() {
@@ -38,7 +38,7 @@ export default function PlanDetailPage() {
         setChild(await childRes.json());
 
         // Load each day's tasks
-        const days = getWeekDays(new Date(planData.weekStart));
+        const days = getWeekDays(parseLocalDate(planData.weekStart));
         const tasksMap: Record<string, Task[]> = {};
         const progressMap: Record<string, number> = {};
 

@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(date: Date | string, fmt: string = "yyyy-MM-dd"): string {
-  const d = typeof date === "string" ? new Date(date) : date;
+  const d = typeof date === "string" ? parseLocalDate(date) : date;
   const map: Record<string, string> = {
     yyyy: d.getFullYear().toString(),
     MM: String(d.getMonth() + 1).padStart(2, "0"),
@@ -19,6 +19,11 @@ export function formatDate(date: Date | string, fmt: string = "yyyy-MM-dd"): str
     result = result.replace(key, val);
   }
   return result;
+}
+
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
 export function getWeekDays(date: Date = new Date()): string[] {
@@ -41,7 +46,7 @@ export function getChineseWeekday(dateStr: string): string {
     0: "日", 1: "一", 2: "二", 3: "三",
     4: "四", 5: "五", 6: "六",
   };
-  return `周${map[new Date(dateStr).getDay()]}`;
+  return `周${map[parseLocalDate(dateStr).getDay()]}`;
 }
 
 export function getWeekRange(date: Date = new Date()): { start: string; end: string } {

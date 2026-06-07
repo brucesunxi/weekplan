@@ -92,6 +92,9 @@ async function callDeepSeek(prompt: string, weekStart: string): Promise<Record<s
     parsed = JSON.parse(content);
   }
 
+  // Debug log
+  console.log("[AI RAW]", JSON.stringify(parsed).slice(0, 500));
+
   // Normalize
   const dates = getDates(weekStart);
   const result: Record<string, Task[]> = {};
@@ -150,10 +153,14 @@ function guessCategory(t: string): Task["category"] {
 
 function getDates(start: string): string[] {
   const dates: string[] = [];
-  const d = new Date(start);
+  const [y, m, d] = start.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
   for (let i = 0; i < 7; i++) {
-    dates.push(d.toISOString().split("T")[0]);
-    d.setDate(d.getDate() + 1);
+    const ny = date.getFullYear();
+    const nm = String(date.getMonth() + 1).padStart(2, "0");
+    const nd = String(date.getDate()).padStart(2, "0");
+    dates.push(`${ny}-${nm}-${nd}`);
+    date.setDate(date.getDate() + 1);
   }
   return dates;
 }
