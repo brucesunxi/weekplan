@@ -112,11 +112,13 @@ function buildStructuredPrompt(input: StructuredInput, childName: string, childA
   if (input.fixedSlots.length > 0) {
     const byDay: Record<number, { title: string; time: string }[]> = {};
     for (const slot of input.fixedSlots) {
-      if (!byDay[slot.dayOfWeek]) byDay[slot.dayOfWeek] = [];
-      byDay[slot.dayOfWeek].push({
-        title: `${slot.emoji} ${slot.title}`,
-        time: `${slot.startTime}-${slot.endTime}`,
-      });
+      for (const d of slot.days) {
+        if (!byDay[d]) byDay[d] = [];
+        byDay[d].push({
+          title: `${slot.emoji} ${slot.title}`,
+          time: `${slot.startTime}-${slot.endTime}`,
+        });
+      }
     }
     fixedScheduleText = "\n【固定时间安排】\n以下时间段已被占用，请在这些时间安排对应的活动，不要冲突：\n";
     for (let d = 1; d <= 5; d++) {

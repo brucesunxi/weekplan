@@ -93,7 +93,7 @@ export interface ToggleTaskResponse {
 // ===== 结构化计划输入 =====
 export interface FixedSlot {
   id: string
-  dayOfWeek: number  // 0=周日, 1=周一 ... 6=周六
+  days: number[]  // [1,2,3,4,5] = 周一到周五, [1,3,5] = 周一三五
   startTime: string  // "16:00"
   endTime: string    // "17:30"
   title: string

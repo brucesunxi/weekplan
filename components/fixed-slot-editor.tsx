@@ -2,9 +2,17 @@
 
 import { useState } from "react";
 import type { FixedSlot } from "@/types";
-import { DAY_NAMES } from "@/types";
+import { DAY_NAMES, DAY_NAMES_SHORT } from "@/types";
 
 const EMOJI_OPTIONS = ["📚", "🎹", "🎨", "⚽", "🏊", "🎵", "💃", "🤸", "🧮", "🔬", "🌍", "💻", "✏️", "🎭", "♟️", "🧩"];
+
+const PRESETS = [
+  { label: "每天", getDays: () => [0,1,2,3,4,5,6] },
+  { label: "周一至周五", getDays: () => [1,2,3,4,5] },
+  { label: "周末", getDays: () => [0,6] },
+  { label: "周一三", getDays: () => [1,3] },
+  { label: "周二四", getDays: () => [2,4] },
+];
 
 interface Props {
   slots: FixedSlot[]
@@ -13,17 +21,27 @@ interface Props {
 
 export default function FixedSlotEditor({ slots, onChange }: Props) {
   const [showForm, setShowForm] = useState(false);
-  const [day, setDay] = useState(1);
+  const [selectedDays, setSelectedDays] = useState<number[]>([1,2,3,4,5]);
   const [startTime, setStartTime] = useState("16:00");
   const [endTime, setEndTime] = useState("17:00");
   const [title, setTitle] = useState("");
   const [emoji, setEmoji] = useState("📚");
 
+  function toggleDay(d: number) {
+    setSelectedDays((prev) =>
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()
+    );
+  }
+
+  function usePreset(preset: typeof PRESETS[0]) {
+    setSelectedDays(preset.getDays());
+  }
+
   function addSlot() {
-    if (!title.trim()) return;
+    if (!title.trim() || selectedDays.length === 0) return;
     const newSlot: FixedSlot = {
       id: crypto.randomUUID(),
-      dayOfWeek: day,
+      days: [...selectedDays],
       startTime,
       endTime,
       title: title.trim(),
@@ -38,8 +56,15 @@ export default function FixedSlotEditor({ slots, onChange }: Props) {
     onChange(slots.filter((s) => s.id !== id));
   }
 
-  const weekdaySlots = slots.filter((s) => s.dayOfWeek >= 1 && s.dayOfWeek <= 5);
-  const weekendSlots = slots.filter((s) => s.dayOfWeek === 0 || s.dayOfWeek === 6);
+  function dayLabel(days: number[]): string {
+    if (days.length === 7) return "每天";
+    if (days.length === 5 && days.every((d) => d >= 1 && d <= 5)) return "周一至周五";
+    if (days.length === 2 && days.includes(0) && days.includes(6)) return "周末";
+    return days.map((d) => DAY_NAMES_SHORT[d]).join("、");
+  }
+
+  const weekdaySlots = slots.filter((s) => s.days.some((d) => d >= 1 && d <= 5));
+  const weekendSlots = slots.filter((s) => s.days.some((d) => d === 0 || d === 6));
 
   return (
     <div>
@@ -58,22 +83,61 @@ export default function FixedSlotEditor({ slots, onChange }: Props) {
       {/* Add form */}
       {showForm && (
         <div className="bg-muted rounded-2xl p-4 mb-3 space-y-3">
+          {/* Day presets */}
+          <div>
+            <label className="text-xs font-bold mb-1 block">重复</label>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => usePreset(p)}
+                  className={`text-xs px-3 py-1.5 rounded-xl font-bold transition-all ${
+                    JSON.stringify(selectedDays) === JSON.stringify(p.getDays())
+                      ? "bg-primary-200 text-primary-800"
+                      : "bg-white text-muted-foreground hover:bg-primary-100"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {/* Individual day toggles */}
+            <div className="flex gap-1">
+              {DAY_NAMES.map((name, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => toggleDay(i)}
+                  className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
+                    selectedDays.includes(i)
+                      ? "bg-primary-400 text-white"
+                      : "bg-white text-muted-foreground hover:bg-primary-100"
+                  }`}
+                >
+                  {DAY_NAMES_SHORT[i]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-bold mb-1 block">星期</label>
-              <select
-                value={day}
-                onChange={(e) => setDay(Number(e.target.value))}
-                className="cute-input text-sm"
-              >
-                {DAY_NAMES.map((name, i) => (
-                  <option key={i} value={i}>{name}</option>
-                ))}
-              </select>
+              <label className="text-xs font-bold mb-1 block">开始</label>
+              <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="cute-input text-sm" />
             </div>
             <div>
+              <label className="text-xs font-bold mb-1 block">结束</label>
+              <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="cute-input text-sm" />
+            </div>
+          </div>
+
+          {/* Emoji + Title */}
+          <div className="flex gap-2 items-end">
+            <div>
               <label className="text-xs font-bold mb-1 block">图标</label>
-              <div className="flex flex-wrap gap-1">
+              <div className="flex gap-0.5">
                 {EMOJI_OPTIONS.slice(0, 8).map((e) => (
                   <button
                     key={e}
@@ -88,53 +152,44 @@ export default function FixedSlotEditor({ slots, onChange }: Props) {
                 ))}
               </div>
             </div>
-            <div>
-              <label className="text-xs font-bold mb-1 block">开始</label>
+            <div className="flex-1">
+              <label className="text-xs font-bold mb-1 block">活动名称</label>
               <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="如：钢琴课"
                 className="cute-input text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-bold mb-1 block">结束</label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="cute-input text-sm"
+                onKeyDown={(e) => e.key === "Enter" && addSlot()}
               />
             </div>
           </div>
-          <div>
-            <label className="text-xs font-bold mb-1 block">活动名称</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="如：钢琴课、英语班"
-              className="cute-input text-sm"
-              onKeyDown={(e) => e.key === "Enter" && addSlot()}
-            />
-          </div>
+
           <div className="flex gap-2">
             <button type="button" onClick={() => setShowForm(false)} className="cute-button-secondary text-sm flex-1">取消</button>
-            <button type="button" onClick={addSlot} className="cute-button-primary text-sm flex-1" disabled={!title.trim()}>确定</button>
+            <button type="button" onClick={addSlot} className="cute-button-primary text-sm flex-1" disabled={!title.trim() || selectedDays.length === 0}>确定</button>
           </div>
         </div>
       )}
 
-      {/* Weekday slots */}
-      {weekdaySlots.length > 0 && (
-        <div className="mb-2">
-          <div className="text-xs font-bold text-muted-foreground mb-1">周中</div>
-          <div className="space-y-1">
-            {weekdaySlots.sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime)).map((slot) => (
-              <div key={slot.id} className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-border text-sm group">
+      {/* Slot list */}
+      {slots.length > 0 && (
+        <div className="space-y-1">
+          {[...slots].sort((a, b) => Math.min(...a.days) - Math.min(...b.days)).map((slot) => {
+            const hasWeekday = slot.days.some((d) => d >= 1 && d <= 5);
+            const hasWeekend = slot.days.some((d) => d === 0 || d === 6);
+            return (
+              <div
+                key={slot.id}
+                className={`flex items-center gap-2 rounded-xl px-3 py-2 border text-sm group ${
+                  hasWeekend && !hasWeekday
+                    ? "bg-cute-yellow/10 border-cute-yellow/30"
+                    : "bg-white border-border"
+                }`}
+              >
                 <span>{slot.emoji}</span>
-                <span className="font-bold w-10">{DAY_NAMES[slot.dayOfWeek]}</span>
-                <span className="text-muted-foreground">{slot.startTime}-{slot.endTime}</span>
+                <span className="font-bold text-xs w-20">{dayLabel(slot.days)}</span>
+                <span className="text-muted-foreground text-xs">{slot.startTime}-{slot.endTime}</span>
                 <span className="flex-1">{slot.title}</span>
                 <button
                   type="button"
@@ -144,32 +199,8 @@ export default function FixedSlotEditor({ slots, onChange }: Props) {
                   ✕
                 </button>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Weekend slots */}
-      {weekendSlots.length > 0 && (
-        <div>
-          <div className="text-xs font-bold text-muted-foreground mb-1">周末</div>
-          <div className="space-y-1">
-            {weekendSlots.sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime)).map((slot) => (
-              <div key={slot.id} className="flex items-center gap-2 bg-cute-yellow/10 rounded-xl px-3 py-2 border border-cute-yellow/30 text-sm group">
-                <span>{slot.emoji}</span>
-                <span className="font-bold w-10">{DAY_NAMES[slot.dayOfWeek]}</span>
-                <span className="text-muted-foreground">{slot.startTime}-{slot.endTime}</span>
-                <span className="flex-1">{slot.title}</span>
-                <button
-                  type="button"
-                  onClick={() => removeSlot(slot.id)}
-                  className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       )}
 
