@@ -19,7 +19,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "请选择孩子" }, { status: 400 });
     }
 
-    // Validate based on mode
     if (mode === "natural") {
       if (!body.description) {
         return NextResponse.json({ error: "请填写描述" }, { status: 400 });
@@ -50,16 +49,24 @@ export async function POST(req: Request) {
       } else {
         const structured = body.structured as StructuredInput;
         days = await generateStructuredPlan(structured, child.name, child.age, weekStart);
-        // Build a readable description from structured data
-        const slotCount = structured.fixedSlots.length;
-        const wishCount = structured.wishlist.length;
-        userDescription = `固定安排${slotCount}项 + 待办事项${wishCount}项`;
+        userDescription = `固定安排${structured.fixedSlots.length}项 + 待办事项${structured.wishlist.length}项`;
       }
     } catch (err) {
-      return NextResponse.json(
-        { error: "AI 生成失败，请稍后重试" },
-        { status: 502 }
-      );
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.includes("timeout") || msg.includes("timed out")) {
+        return NextResponse.json({ error: "AI 生成超时，请简化描述后重试" }, { status: 504 });
+      }
+      if (msg.includes("fetch")) {
+        return NextResponse.json({ error: "AI 服务连接失败，请稍后重试" }, { status: 502 });
+      }
+      return NextResponse.json({ error: "AI 生成失败，请稍后重试" }, { status: 502 });
+    }
+
+    // Validate that we got some data
+    const dayKeys = getWeekDays();
+    const hasTasks = dayKeys.some((date) => (days[date]?.length || 0) > 0);
+    if (!hasTasks) {
+      return NextResponse.json({ error: "AI 返回数据异常，请重试" }, { status: 502 });
     }
 
     // Create plan record
@@ -78,7 +85,6 @@ export async function POST(req: Request) {
     await setPlan(plan);
 
     // Store each day's tasks
-    const dayKeys = getWeekDays();
     for (const date of dayKeys) {
       const tasks = days[date] || [];
       const cleanTasks = tasks.map((t, i) => ({
@@ -96,6 +102,6 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("Plan generation error:", err);
-    return NextResponse.json({ error: "服务器错误" }, { status: 500 });
+    return NextResponse.json({ error: "服务器错误，请重试" }, { status: 500 });
   }
 }
